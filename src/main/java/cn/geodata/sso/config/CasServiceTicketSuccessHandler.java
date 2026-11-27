@@ -34,14 +34,17 @@ public class CasServiceTicketSuccessHandler implements AuthenticationSuccessHand
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
+        // Send the browser back to the prefix it actually used (T-14): a client that posted to
+        // /cas/login must not be bounced to /login, because it may be mounted with only one prefix.
+        String loginUrl = cn.geodata.sso.cas.web.CasLoginPrefixRewriteFilter.prefixOf(request) + "/login";
         String service = request.getParameter("service");
         if (!(authentication.getPrincipal() instanceof CasUserPrincipal principal)) {
-            response.sendRedirect("/login");
+            response.sendRedirect(loginUrl);
             return;
         }
 
         if (service == null || service.isBlank()) {
-            response.sendRedirect("/login");
+            response.sendRedirect(loginUrl);
             return;
         }
 

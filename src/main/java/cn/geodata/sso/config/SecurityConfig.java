@@ -44,6 +44,26 @@ public class SecurityConfig {
     }
 
     /**
+     * Canonical form-login POST target: the prefixed mount when configured, bare root otherwise.
+     */
+    static String loginProcessingUrl(SsoProperties props) {
+        return props.getCas().getMountPaths().stream()
+                .filter(p -> p != null && !p.isBlank())
+                .findFirst()
+                .map(p -> p + "/login")
+                .orElse("/login");
+    }
+
+    /** Every login POST path that must authenticate, one per configured mount prefix. */
+    static java.util.List<String> loginAcceptedPaths(SsoProperties props) {
+        return props.getCas().getMountPaths().stream()
+                .map(p -> p == null ? "" : p)
+                .distinct()
+                .map(p -> p + "/login")
+                .toList();
+    }
+
+    /**
      * Bare-root and prefixed CAS paths all funnel through one matcher so the login page and the
      * protocol endpoints keep identical semantics under both mount prefixes (T-14 hedge).
      */
@@ -107,6 +127,15 @@ public class SecurityConfig {
                                         SsoProperties props) throws Exception {
         http.securityMatcher(casPaths())
                 .csrf(AbstractHttpConfigurer::disable) // legacy JSP posted no CSRF token
+                // Both mount prefixes must authenticate (T-14). Spring Security's form-login filter
+                // matches exactly one processing URL, so the inbound POST path is rewritten onto the
+                // canonical one and the original prefix is recorded for the redirect handlers.
+                .addFilterBefore(
+                        new cn.geodata.sso.cas.web.CasLoginPrefixRewriteFilter(
+                                loginProcessingUrl(props),
+                                loginAcceptedPaths(props)),
+                        org.springframework.security.web.authentication
+                                .UsernamePasswordAuthenticationFilter.class)
                 .authenticationProvider(provider)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -132,14 +161,16 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login")
-                        // both prefixes must be accepted as the POST target
-                        .loginProcessingUrl("/login")
+                        // canonical POST target; the prefix filter makes both prefixes reach it
+                        .loginProcessingUrl(loginProcessingUrl(props))
                         .usernameParameter("username")
                         .passwordParameter("password")
                         .successHandler(casServiceTicketSuccessHandler)
                         .failureHandler((request, response, exception) -> {
                             String service = request.getParameter("service");
-                            String redirect = "/login?error="
+                            // Honour the prefix the browser actually posted to (T-14).
+                            String redirect = cn.geodata.sso.cas.web.CasLoginPrefixRewriteFilter
+                                    .prefixOf(request) + "/login?error="
                                     + java.net.URLEncoder.encode("用户名或密码错误", java.nio.charset.StandardCharsets.UTF_8);
                             if (service != null && !service.isBlank()) {
                                 redirect += "&service="
