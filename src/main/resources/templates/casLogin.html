@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>统一身份认证</title>
+    <style>
+        body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: #f4f6f9; margin: 0; }
+        .wrap { max-width: 360px; margin: 80px auto; background: #fff; border-radius: 8px; padding: 28px 32px 32px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+        h2 { margin: 0 0 6px; font-size: 20px; font-weight: 600; color: #1f2329; }
+        .sub { color: #8f959e; font-size: 13px; margin-bottom: 22px; }
+        label { display: block; font-size: 13px; color: #646a73; margin: 14px 0 6px; }
+        input[type=text], input[type=password] { width: 100%; box-sizing: border-box; height: 38px; padding: 0 10px; border: 1px solid #d0d3d6; border-radius: 4px; font-size: 14px; }
+        .row { display: flex; gap: 8px; align-items: center; }
+        .row input { flex: 1; }
+        .captcha { width: 92px; height: 38px; border: 1px solid #d0d3d6; border-radius: 4px; object-fit: cover; }
+        button { width: 100%; height: 40px; margin-top: 22px; background: #3370ff; color: #fff; border: 0; border-radius: 4px; font-size: 15px; cursor: pointer; }
+        button:hover { background: #2860e1; }
+        .err { background: #fef0f0; color: #d83931; border-radius: 4px; padding: 10px 12px; font-size: 13px; margin-bottom: 8px; }
+        .foot { margin-top: 18px; font-size: 12px; color: #8f959e; line-height: 1.6; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h2>统一身份认证</h2>
+    <p class="sub">Geodata 单点登录</p>
+
+    <div class="err" th:if="${error != null and !error.isEmpty()}" th:text="${error}">错误信息</div>
+
+    <!--
+      Field names are the legacy CAS login page contract (casLoginView.jsp): username / password /
+      yzm / lt / execution / _eventId. Do not rename them - legacy clients and scripted logins post
+      exactly these names.
+    -->
+    <form method="post" th:action="${formAction}" th:if="${!formAction.startsWith('/login')}">
+        <input type="hidden" name="service" th:value="${service}"/>
+        <input type="hidden" name="renew" th:value="${renew}"/>
+        <input type="hidden" name="gateway" th:value="${gateway}"/>
+        <input type="hidden" name="lt" th:value="${lt}"/>
+        <input type="hidden" name="execution" th:value="${execution}"/>
+        <input type="hidden" name="_eventId" value="submit"/>
+        <label for="u">用户名</label>
+        <input id="u" type="text" name="username" autocomplete="username" autofocus required/>
+        <label for="p">密码</label>
+        <input id="p" type="password" name="password" autocomplete="current-password" required/>
+        <div th:if="${captchaRequired}">
+            <label for="y">验证码</label>
+            <div class="row">
+                <input id="y" type="text" name="yzm" maxlength="8" required/>
+                <img class="captcha" th:src="@{'/captcha.jpg'}" alt="验证码" title="点击刷新" onclick="this.src='/captcha.jpg?t='+Date.now()"/>
+            </div>
+        </div>
+        <button type="submit">登 录</button>
+    </form>
+
+    <!-- Spring Security form login path, used when mount prefix is the root ("") -->
+    <form method="post" action="/login" th:if="${formAction.startsWith('/login')}">
+        <input type="hidden" name="service" th:value="${service}"/>
+        <input type="hidden" name="renew" th:value="${renew}"/>
+        <input type="hidden" name="gateway" th:value="${gateway}"/>
+        <input type="hidden" name="lt" th:value="${lt}"/>
+        <input type="hidden" name="execution" th:value="${execution}"/>
+        <input type="hidden" name="_eventId" value="submit"/>
+        <label for="u2">用户名</label>
+        <input id="u2" type="text" name="username" autocomplete="username" autofocus required/>
+        <label for="p2">密码</label>
+        <input id="p2" type="password" name="password" autocomplete="current-password" required/>
+        <div th:if="${captchaRequired}">
+            <label for="y2">验证码</label>
+            <div class="row">
+                <input id="y2" type="text" name="yzm" maxlength="8" required/>
+                <img class="captcha" th:src="@{'/captcha.jpg'}" alt="验证码" title="点击刷新" onclick="this.src='/captcha.jpg?t='+Date.now()"/>
+            </div>
+        </div>
+        <button type="submit">登 录</button>
+    </form>
+
+    <div class="foot">
+        密码提交方式与旧系统一致（浏览器端先做 MD5 摘要）。
+    </div>
+</div>
+<script>
+    // Legacy front-end digest: hex_md5(password + "{" + username + "}").
+    // The stored legacy value IS this digest, compared as plain text server side, so the browser must
+    // still produce it for accounts that have not been upgraded yet. Once an account is upgraded the
+    // server-side BCrypt path accepts the raw password too, but the digest form keeps old clients working.
+    //
+    // In local/dev we submit the raw password so scripted smoke tests work; toggle with the
+    // sso.cas.login-page.frontend-md5 flag rendered below.
+    var FRONTEND_MD5 = /*[[${frontendMd5}]]*/ false;
+    if (FRONTEND_MD5) {
+        document.querySelectorAll('form').forEach(function (f) {
+            f.addEventListener('submit', function () {
+                var u = f.querySelector('input[name=username]');
+                var p = f.querySelector('input[name=password]');
+                if (u && p && p.value && !p.dataset.hashed) {
+                    p.value = hexMd5(p.value + '{' + u.value + '}');
+                    p.dataset.hashed = '1';
+                }
+            });
+        });
+    }
+</script>
+</body>
+</html>

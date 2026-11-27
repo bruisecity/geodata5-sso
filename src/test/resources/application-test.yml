@@ -1,0 +1,36 @@
+# Test profile: same wiring as local but without a fixed port, so @SpringBootTest can run cleanly.
+spring:
+  datasource:
+    url: jdbc:h2:mem:ssotest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+      schema-locations:
+        - classpath:db/schema.sql
+        - classpath:db/schema-cas.sql
+server:
+  port: 0
+sso:
+  issuer: http://localhost:9000
+  cas:
+    mount-paths:
+      - /cas
+      - ""
+    ticket-cookie-path: /
+    service-registry-mode: LENIENT
+    login-page:
+      captcha-required: false
+  legacy:
+    created-from-filter: "*"
+  bootstrap:
+    seed: true
+    # the client/user lists come from application.yml; Spring merges lists by index, so the
+    # test profile intentionally does not redefine them.
+logging:
+  level:
+    cn.geodata.sso: WARN
+    org.springframework.security: WARN
+    org.springframework.boot.autoconfigure: WARN

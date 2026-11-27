@@ -1,0 +1,130 @@
+spring:
+  application:
+    name: geodata5-sso
+  # Local profile: H2 in-memory keeps the skeleton self-contained; PostgreSQL in prod.
+  datasource:
+    url: jdbc:h2:mem:sso;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+      schema-locations:
+        - classpath:db/schema.sql
+        - classpath:db/schema-cas.sql
+server:
+  port: 9000
+  servlet:
+    session:
+      timeout: 60m
+      cookie:
+        http-only: true
+        name: JSESSIONID
+sso:
+  issuer: http://localhost:9000
+  cas:
+    mount-paths:
+      - /cas
+      - ""
+    ticket-cookie-path: /
+    ticket-cookie-name: CASTGC
+    service-registry-mode: LENIENT
+    session-timeout: 60m
+    service-ticket-ttl: 10s
+    ticket-granting-ticket-max-lifetime: 8h
+    ticket-granting-ticket-idle-timeout: 2h
+    saml-issuer: localhost
+    saml-validate-enabled: true
+    login-page:
+      captcha-required: false
+      captcha-bypass-for-local-profile: true
+      form-action: /login
+    captcha:
+      width: 100
+      height: 30
+      length: 4
+      ttl: 5m
+  legacy:
+    enabled: true
+    table: t_customer
+    username-column: username
+    password-column: password
+    user-id-column: userid
+    real-name-column: real_name
+    work-for-column: work_for
+    email-column: email
+    mobile-column: mobile
+    created-from-column: created_from
+    enabled-column: enabled
+    # local seeds carry LOCAL so they are visible without relaxing prod semantics
+    created-from-filter: "*"
+    legacy-password-scheme: LEGACY_HEX_MD5_OF_PASSWORD_BRACED_USERNAME
+    upgrade-password-on-login: true
+    enabled-literal: TRUE_FALSE
+    read-only-source-of-truth: true
+    lock-threshold: 5
+    lock-window: 30m
+    lock-duration: 30m
+  security:
+    require-captcha-for-form-login: false
+    enforce-pkce-for-public-clients: true
+    access-token-ttl: 15m
+    refresh-token-ttl: 30d
+  bootstrap:
+    seed: true
+    clients:
+      - client-id: demo-web
+        client-secret: demo-web-secret
+        client-name: 演示 Web 应用（OIDC 授权码）
+        redirect-uris:
+          - http://localhost:8080/login/oauth2/code/demo-web
+        scopes:
+          - openid
+          - profile
+          - email
+        public-client: false
+      - client-id: demo-spa
+        client-name: 演示前端应用（public client，强制 PKCE）
+        redirect-uris:
+          - http://localhost:5173/callback
+        scopes:
+          - openid
+          - profile
+        public-client: true
+      - client-id: demo-service
+        client-secret: demo-service-secret
+        client-name: 演示服务间调用（client credentials）
+        scopes:
+          - api.read
+        public-client: false
+    users:
+      - username: zhangsan
+        password: Passw0rd!
+        user-id: "1001"
+        real-name: 张三
+        work-for: 地理信息中心
+        email: zhangsan@geodata.cn
+        mobile: "13800000001"
+        created-from: LOCAL
+        enabled: true
+      - username: legacy_user
+        # raw password kept in the seed; the seeder writes ONLY the legacy digest into the legacy
+        # column, reproducing exactly what the old browser would have stored.
+        password: legacy123
+        user-id: "2002"
+        real-name: 李四
+        work-for: 地质调查院
+        email: lisi@geodata.cn
+        mobile: "13800000002"
+        created-from: LOCAL
+        enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+logging:
+  level:
+    cn.geodata.sso: INFO
+    org.springframework.security: INFO
