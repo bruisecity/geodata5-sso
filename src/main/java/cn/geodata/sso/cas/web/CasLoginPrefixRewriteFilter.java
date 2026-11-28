@@ -92,6 +92,14 @@ public class CasLoginPrefixRewriteFilter extends OncePerRequestFilter {
     /**
      * Presents the request as if it had been posted to the canonical path, leaving everything else
      * (parameters, headers, session, security context) untouched.
+     *
+     * <p>Besides the URI/servletPath, this also refreshes Spring's cached
+     * {@code ServletRequestPathUtils.PATH_ATTRIBUTE}: Spring Security 7's
+     * {@code PathPatternRequestMatcher} reads the path from that request attribute when present
+     * (it is cached before the security filter chain runs), so a wrapper that only overrides
+     * {@code getRequestURI()} is silently ignored by every path matcher - a defect found by the
+     * runtime smoke test: POST /login fell through to the controller (405) while POST /cas/login
+     * authenticated.
      */
     static final class PrefixRewrittenRequest extends HttpServletRequestWrapper {
 
@@ -125,6 +133,25 @@ public class CasLoginPrefixRewriteFilter extends OncePerRequestFilter {
         private String determineScheme() {
             String forwarded = getHeader("X-Forwarded-Proto");
             return forwarded == null || forwarded.isBlank() ? getScheme() : forwarded;
+        }
+
+        /**
+         * Rewrites the cached parsed path as well, so PathPatternRequestMatcher sees the
+         * canonical path. The original attribute (cached from the pre-rewrite URI) would otherwise
+         * win over every overridden accessor.
+         */
+        @Override
+        public Object getAttribute(String name) {
+            if (org.springframework.web.util.ServletRequestPathUtils.PATH_ATTRIBUTE.equals(name)) {
+                Object raw = super.getAttribute(name);
+                if (raw instanceof org.springframework.http.server.RequestPath rp
+                        && !canonicalServletPath.equals(rp.pathWithinApplication().value())) {
+                    return org.springframework.http.server.RequestPath.parse(
+                            canonicalUri, rp.contextPath().value());
+                }
+                return raw;
+            }
+            return super.getAttribute(name);
         }
     }
 }

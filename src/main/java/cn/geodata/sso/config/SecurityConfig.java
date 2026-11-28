@@ -93,7 +93,12 @@ public class SecurityConfig {
             org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization
                     .OAuth2AuthorizationServerConfigurer authorizationServerConfigurer) throws Exception {
         http.securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
-                .with(authorizationServerConfigurer, org.springframework.security.config.Customizer.withDefaults())
+                // .oidc(withDefaults()) registers OidcProviderConfigurationEndpointFilter
+                // (/.well-known/openid-configuration) and friends; without it the endpointsMatcher
+                // still lists the path but no filter serves it - discovery 404s. Found by runtime
+                // smoke probe.
+                .with(authorizationServerConfigurer, c -> c
+                        .oidc(org.springframework.security.config.Customizer.withDefaults()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .defaultAuthenticationEntryPointFor(
