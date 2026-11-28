@@ -100,46 +100,8 @@ public class CasResponseRenderer {
         return "no\n\n";
     }
 
-    /**
-     * SAML 1.1 assertion wrapper - phase 1 only guarantees a well-formed assertion, not semantic
-     * equivalence, and the legacy issuer is hard-coded to {@code localhost} (T-12).
-     */
-    public String samlSuccess(String username, String issuer) {
-        String now = java.time.format.DateTimeFormatter.ISO_INSTANT
-                .format(java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
-        return "<SOAP-ENV:Envelope xmlns:SOAP-ENV='http://schemas.xmlsoap.org/soap/envelope/'>"
-                + "<SOAP-ENV:Header/>"
-                + "<SOAP-ENV:Body>"
-                + "<samlp:Response xmlns:samlp='urn:oasis:names:tc:SAML:1.0:protocol' MajorVersion='1' MinorVersion='1'>"
-                + "<samlp:Status>"
-                + "<samlp:StatusCode Value='samlp:Success'/>"
-                + "</samlp:Status>"
-                + "<saml:Assertion xmlns:saml='urn:oasis:names:tc:SAML:1.0:assertion' MajorVersion='1' MinorVersion='1' AssertionID='_sso_saml_assertion'>"
-                + "<saml:Issuer>" + escape(issuer) + "</saml:Issuer>"
-                + "<saml:AuthenticationStatement AuthenticationInstant='" + now + "' AuthenticationMethod='urn:oasis:names:tc:SAML:1.0:am:password'>"
-                + "<saml:Subject><saml:NameIdentifier NameQualifier='" + escape(issuer) + "'>"
-                + escape(username)
-                + "</saml:NameIdentifier></saml:Subject>"
-                + "</saml:AuthenticationStatement>"
-                + "</saml:Assertion>"
-                + "</samlp:Response>"
-                + "</SOAP-ENV:Body>"
-                + "</SOAP-ENV:Envelope>";
-    }
-
-    public String samlFailure(String code, String description) {
-        return "<SOAP-ENV:Envelope xmlns:SOAP-ENV='http://schemas.xmlsoap.org/soap/envelope/'>"
-                + "<SOAP-ENV:Header/>"
-                + "<SOAP-ENV:Body>"
-                + "<samlp:Response xmlns:samlp='urn:oasis:names:tc:SAML:1.0:protocol' MajorVersion='1' MinorVersion='1'>"
-                + "<samlp:Status>"
-                + "<samlp:StatusCode Value='samlp:Requester'/>"
-                + "<samlp:StatusMessage>" + escape(code + ": " + description) + "</samlp:StatusMessage>"
-                + "</samlp:Status>"
-                + "</samlp:Response>"
-                + "</SOAP-ENV:Body>"
-                + "</SOAP-ENV:Envelope>";
-    }
+    // samlSuccess/samlFailure removed 2026-11-28: production access log shows zero calls to
+    // /samlValidate (T-12 closed), so the endpoint is gone entirely.
 
     /**
      * XML text escaping. The legacy JSP relied on JSTL's {@code c:out} default escaping; we escape

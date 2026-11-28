@@ -137,7 +137,10 @@ public class CasAttributeAssembler {
         list.add(new CasAttributeMapping(EMAIL, CasPrincipalAttributes.EMAIL, true, 5));
         list.add(new CasAttributeMapping(MOBILE, CasPrincipalAttributes.MOBILE, true, 6));
         list.add(new CasAttributeMapping(CREATED_FROM, CasPrincipalAttributes.CREATED_FROM, true, 7));
-        list.add(new CasAttributeMapping(IS_ENABLED, CasPrincipalAttributes.IS_ENABLED, true, 8));
+        // Golden capture (user-supplied 2026-11-27): the running legacy server emits SEVEN attributes
+        // and isEnabled is NOT among them. Row kept for traceability, emitted=false until the legacy
+        // side confirms otherwise.
+        list.add(new CasAttributeMapping(IS_ENABLED, CasPrincipalAttributes.IS_ENABLED, false, 8));
         // legacy source commented these out -> rows exist but are not emitted
         list.add(new CasAttributeMapping("roleId", CasPrincipalAttributes.ROLE_ID, false, 9));
         list.add(new CasAttributeMapping("roleName", CasPrincipalAttributes.ROLE_NAME, false, 10));

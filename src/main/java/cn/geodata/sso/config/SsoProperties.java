@@ -91,9 +91,7 @@ public class SsoProperties {
         private final LoginPage loginPage = new LoginPage();
 
         /** Legacy {@code protocol_views.properties} hard-coded issuer {@code localhost}. */
-        private String samlIssuer = "localhost";
 
-        private boolean samlValidateEnabled = true;
 
         /** Legacy {@code /cas/captcha.jpg} via {@code com.nauth.ImageCaptchaServlet}. */
         private final Captcha captcha = new Captcha();
@@ -166,21 +164,9 @@ public class SsoProperties {
             return loginPage;
         }
 
-        public String getSamlIssuer() {
-            return samlIssuer;
-        }
 
-        public void setSamlIssuer(String samlIssuer) {
-            this.samlIssuer = samlIssuer;
-        }
 
-        public boolean isSamlValidateEnabled() {
-            return samlValidateEnabled;
-        }
 
-        public void setSamlValidateEnabled(boolean samlValidateEnabled) {
-            this.samlValidateEnabled = samlValidateEnabled;
-        }
 
         public Captcha getCaptcha() {
             return captcha;

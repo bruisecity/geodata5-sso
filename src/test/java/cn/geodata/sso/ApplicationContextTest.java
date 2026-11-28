@@ -61,15 +61,17 @@ class ApplicationContextTest {
     }
 
     @Test
-    @DisplayName("attribute mapping is read from cas_attribute_mapping, eight emitted rows")
+    @DisplayName("attribute mapping is read from cas_attribute_mapping, seven emitted rows")
     void mappingTableDrivesAttributes() {
         int emitted = jdbc.queryForObject(
                 "select count(*) from cas_attribute_mapping where emitted = true", Integer.class);
         int notEmitted = jdbc.queryForObject(
                 "select count(*) from cas_attribute_mapping where emitted = false", Integer.class);
-        assertEquals(8, emitted, "exactly eight attributes are exported");
-        assertEquals(2, notEmitted, "roleId/roleName exist as rows but are not exported");
-        assertEquals(8, assembler.loadMappings().stream().filter(m -> m.emitted()).count());
+        // seven emitted per the golden capture (isEnabled is NOT emitted by the running legacy
+        // server); isEnabled/roleId/roleName exist as rows but are not exported
+        assertEquals(7, emitted, "exactly seven attributes are exported (golden capture 2026-11-27)");
+        assertEquals(3, notEmitted, "isEnabled/roleId/roleName exist as rows but are not exported");
+        assertEquals(7, assembler.loadMappings().stream().filter(m -> m.emitted()).count());
     }
 
     @Test

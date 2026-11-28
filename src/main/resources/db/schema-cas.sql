@@ -56,7 +56,7 @@ SELECT 'createdFrom', 'legacy.createdFrom', true, 7, 't_customer.created_from ->
 WHERE NOT EXISTS (SELECT 1 FROM cas_attribute_mapping WHERE attribute_name = 'createdFrom');
 
 INSERT INTO cas_attribute_mapping (attribute_name, source_key, emitted, sort_order, note)
-SELECT 'isEnabled', 'legacy.isEnabled', true, 8, 't_customer.enabled -> cas:isEnabled; literal governed by sso.legacy.enabled-literal (T-16)'
+SELECT 'isEnabled', 'legacy.isEnabled', false, 8, 'NOT in the golden capture (user-supplied 2026-11-27): the running legacy server does not emit it; flip emitted=true only after confirming with the legacy side'
 WHERE NOT EXISTS (SELECT 1 FROM cas_attribute_mapping WHERE attribute_name = 'isEnabled');
 
 INSERT INTO cas_attribute_mapping (attribute_name, source_key, emitted, sort_order, note)
@@ -89,21 +89,34 @@ WHERE NOT EXISTS (SELECT 1 FROM cas_service_registry WHERE service_pattern = '^h
 --
 --    PRODUCTION NOTE: this table already exists in the shared MySQL database and the new
 --    service connects to it READ-ONLY (strategy S1). It is created here solely so the local
---    profile is self-contained. Column names/types mirror the columns referenced by the legacy
---    SQL (deployerConfigContext.xml:57,75). The authoritative DDL still has to come from the
---    DBA (T-18) before any production migration.
+--    profile is self-contained.
+--
+--    Types below are the REAL production DDL, obtained 2026-11-27 (T-18 closed), not guesses:
+--      username varchar(120)   - NO unique index in production (uniqueness not guaranteed);
+--                                 the legacy login SQL matched on username+enabled+created_from
+--                                 and so does ours. Local H2 still needs a key for row identity,
+--                                 hence the local-only surrogate below.
+--      userid   varchar(36)    - unique index in production, "CAS" + digits.
+--      password varchar(50)    - hex_md5(pw + "{username}") digest is 32 chars, fits;
+--                                 BCrypt is 60 chars and does NOT fit -> BCrypt lives ONLY in
+--                                 sso_user_credential, the legacy column is never rewritten.
+--      created_from           - value set fixed at the 5 legacy values from source.
+--      charset utf8 -> new store is utf8mb4, lossless direction.
+--    Production scale reference: ~380k rows (AUTO_INCREMENT = 385417).
 -- -------------------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS t_customer (
-    username     varchar(64) NOT NULL PRIMARY KEY,
-    userid       varchar(64),
+    -- local surrogate key; production has no primary key on username
+    username     varchar(120) NOT NULL PRIMARY KEY,
+    userid       varchar(36),
     real_name    varchar(128),
     work_for     varchar(255),
     email        varchar(255),
     mobile       varchar(64),
     created_from varchar(32),
     enabled      int NOT NULL DEFAULT 1,
-    -- legacy semantics: this stores hex_md5(pw + braced username), compared as plain text
-    password     varchar(64)
+    -- legacy semantics: hex_md5(pw + braced username) stored as plain text, compared verbatim;
+    -- varchar(50) per production DDL - physically cannot hold BCrypt(60)
+    password     varchar(50)
 );
 
 -- -------------------------------------------------------------------------------------------

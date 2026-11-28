@@ -116,6 +116,16 @@
 
   <build>
     <finalName>geodata5-sso</finalName>
+    <!-- Boot parent turns resource FILTERING on for application*.yml; the filtering copy path
+         trips an fs-level IOException (FileDescriptor.close0 EINVAL) on the build sandbox's
+         virtiofs-like mount. Our resources contain no Maven placeholders at all, so filtering is
+         switched off project-wide - byte-for-byte copy avoids the buggy code path entirely. -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>

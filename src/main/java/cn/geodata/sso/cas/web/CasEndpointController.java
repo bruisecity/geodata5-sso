@@ -24,7 +24,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
@@ -201,37 +200,6 @@ public class CasEndpointController {
         return ResponseEntity.ok()
                 .contentType(MediaType.valueOf("text/xml;charset=UTF-8"))
                 .body(xml);
-    }
-
-    // =========================================================================================
-    // /cas/samlValidate  (POST, phase-1 placeholder: well-formed assertion only, T-12)
-    // =========================================================================================
-
-    @PostMapping({"/samlValidate", "/cas/samlValidate"})
-    @ResponseBody
-    public ResponseEntity<String> samlValidatePost(
-            @RequestParam(name = "TARGET", required = false) String target,
-            @RequestParam(name = "SAMLart", required = false) String samlArt) {
-
-        if (!props.getCas().isSamlValidateEnabled()) {
-            return ResponseEntity.status(404).contentType(MediaType.APPLICATION_XML)
-                    .body(renderer.samlFailure("SAML_ENDPOINT_DISABLED", "samlValidate is disabled"));
-        }
-        if (target == null || samlArt == null) {
-            return ResponseEntity.ok().contentType(MediaType.valueOf("text/xml;charset=UTF-8"))
-                    .body(renderer.samlFailure("INVALID_REQUEST",
-                            "both 'TARGET' and 'SAMLart' parameters are required"));
-        }
-        TicketValidationResult r = tickets.validateAndConsume(samlArt, target);
-        if (!r.isSuccess()) {
-            return ResponseEntity.ok().contentType(MediaType.valueOf("text/xml;charset=UTF-8"))
-                    .body(renderer.samlFailure(r.getFailureCode().name(), r.getDescription()));
-        }
-        // Phase 1: endpoint exists and returns a well-formed SAML 1.1 assertion. Semantic
-        // equivalence is explicitly out of scope (T-12) - the legacy issuer was hard-coded
-        // to 'localhost' and replicating that faithfully would carry the bug forward.
-        return ResponseEntity.ok().contentType(MediaType.valueOf("text/xml;charset=UTF-8"))
-                .body(renderer.samlSuccess(r.getTicket().getPrincipal(), props.getCas().getSamlIssuer()));
     }
 
     // =========================================================================================

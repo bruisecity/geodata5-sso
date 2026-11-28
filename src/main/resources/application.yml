@@ -34,8 +34,6 @@ sso:
     service-ticket-ttl: 10s
     ticket-granting-ticket-max-lifetime: 8h
     ticket-granting-ticket-idle-timeout: 2h
-    saml-issuer: localhost
-    saml-validate-enabled: true
     login-page:
       captcha-required: false
       captcha-bypass-for-local-profile: true

@@ -76,8 +76,7 @@ public class SecurityConfig {
                 PathPatternRequestMatcher.pathPattern("/CentralAuthenticationService"),
                 PathPatternRequestMatcher.pathPattern("/validate"),
                 PathPatternRequestMatcher.pathPattern("/serviceValidate"),
-                PathPatternRequestMatcher.pathPattern("/proxyValidate"),
-                PathPatternRequestMatcher.pathPattern("/samlValidate"));
+                PathPatternRequestMatcher.pathPattern("/proxyValidate"));
     }
 
     /**
@@ -148,9 +147,7 @@ public class SecurityConfig {
                                 PathPatternRequestMatcher.pathPattern("/serviceValidate"),
                                 PathPatternRequestMatcher.pathPattern("/cas/serviceValidate"),
                                 PathPatternRequestMatcher.pathPattern("/proxyValidate"),
-                                PathPatternRequestMatcher.pathPattern("/cas/proxyValidate"),
-                                PathPatternRequestMatcher.pathPattern("/samlValidate"),
-                                PathPatternRequestMatcher.pathPattern("/cas/samlValidate")).permitAll()
+                                PathPatternRequestMatcher.pathPattern("/cas/proxyValidate")).permitAll()
                         // logout must be reachable anonymously, otherwise "log out" loops into login
                         .requestMatchers(
                                 PathPatternRequestMatcher.pathPattern("/logout"),

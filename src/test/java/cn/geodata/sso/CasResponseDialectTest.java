@@ -74,26 +74,53 @@ class CasResponseDialectTest {
     }
 
     @Test
-    @DisplayName("real cas-client-core 3.2.1 recovers all eight attributes from our response")
-    void realLegacyClientRecoversAllEightAttributes() throws Exception {
+    @DisplayName("real cas-client-core 3.2.1 recovers all seven attributes from our response")
+    void realLegacyClientRecoversAllSevenAttributes() throws Exception {
         var assembler = assemblerWithoutDb();
         String xml = new CasResponseRenderer()
                 .serviceValidationSuccess("zhangsan", assembler.assemble(zhangsanAttributes()));
 
         Map<String, Object> parsed = realClientParse(xml);
 
-        assertEquals(8, parsed.size(), "the real legacy client must recover all eight attributes");
-        // exact-casing contract: userId (capital I) and createdFrom/realName/workFor/isEnabled
+        assertEquals(7, parsed.size(), "the real legacy client must recover all seven attributes");
+        // exact-casing contract: userId (capital I) and createdFrom/realName/workFor
         assertEquals("1001", parsed.get("userId"));
         assertEquals("张三", parsed.get("realName"));
         assertEquals("地理信息中心", parsed.get("workFor"));
         assertEquals("zhangsan@geodata.cn", parsed.get("email"));
         assertEquals("13800000001", parsed.get("mobile"));
         assertEquals("CAS", parsed.get("createdFrom"));
-        assertEquals("true", parsed.get("isEnabled"));
         assertEquals("zhangsan", parsed.get("username"));
+        // golden capture (2026-11-27): the running legacy server does NOT emit isEnabled
+        assertFalse(parsed.containsKey("isEnabled"), "isEnabled must not be emitted (golden capture)");
         assertFalse(parsed.containsKey("roleId"), "roleId is not emitted");
         assertFalse(parsed.containsKey("roleName"), "roleName is not emitted");
+    }
+
+    @Test
+    @DisplayName("golden capture: the real legacy server's XML parses into the same seven attributes")
+    void goldenCaptureParsesWithRealClient() throws Exception {
+        String golden = java.nio.file.Files.readString(java.nio.file.Path.of(
+                "src/test/resources/golden/legacy-serviceValidate-success.xml"));
+
+        Map<String, Object> parsed = realClientParse(golden);
+
+        // The capture (user-supplied 2026-11-27, values masked) is the ground truth for what the
+        // legacy server emits; our implementation must agree on the attribute NAME SET.
+        assertEquals(7, parsed.size(), "golden capture carries exactly seven attributes");
+        for (String name : new String[]{"username", "userId", "realName", "workFor",
+                "email", "mobile", "createdFrom"}) {
+            assertTrue(parsed.containsKey(name), "golden capture must contain " + name);
+        }
+        assertFalse(parsed.containsKey("isEnabled"),
+                "isEnabled absent from the capture is what settled T-16's emission question");
+
+        // and our renderer must emit exactly the same name set (order differs: the legacy server
+        // iterated a HashMap, which is not contractual - the name set and one-per-line shape are)
+        var assembler = assemblerWithoutDb();
+        List<Map.Entry<String, String>> ours = assembler.assemble(zhangsanAttributes());
+        assertEquals(parsed.keySet(), ours.stream().map(Map.Entry::getKey).collect(java.util.stream.Collectors.toSet()),
+                "our emitted attribute names must equal the golden capture's");
     }
 
     @Test
@@ -123,16 +150,15 @@ class CasResponseDialectTest {
         var assembler = assemblerWithoutDb();
         List<Map.Entry<String, String>> attrs = assembler.assemble(zhangsanAttributes());
 
-        // exactly the eight attributes, in legacy emission order, with legacy spelling
+        // exactly the seven attributes (golden capture 2026-11-27: no isEnabled), legacy spelling
         assertEquals(List.of("username", "userId", "realName", "workFor", "email", "mobile",
-                "createdFrom", "isEnabled"), attrs.stream().map(Map.Entry::getKey).toList());
+                "createdFrom"), attrs.stream().map(Map.Entry::getKey).toList());
 
         String xml = new CasResponseRenderer().serviceValidationSuccess("zhangsan", attrs);
 
         // element name IS the attribute key, prefixed with cas: - this is the contract
         assertTrue(xml.contains("<cas:userId>1001</cas:userId>"), "userId element must be literally <cas:userId>");
         assertTrue(xml.contains("<cas:realName>张三</cas:realName>"));
-        assertTrue(xml.contains("<cas:isEnabled>true</cas:isEnabled>"), "default literal per T-16 is true/false");
         assertTrue(xml.contains("<cas:workFor>地理信息中心</cas:workFor>"));
         assertTrue(xml.contains("<cas:username>zhangsan</cas:username>"));
         assertTrue(xml.contains("<cas:createdFrom>CAS</cas:createdFrom>"));
@@ -163,11 +189,23 @@ class CasResponseDialectTest {
     }
 
     @Test
-    @DisplayName("isEnabled literal is configurable for T-16")
+    @DisplayName("isEnabled literal is configurable for T-16 (only relevant if the row is flipped to emitted)")
     void enabledLiteralIsConfigurable() {
+        // The mapping table is the single source of truth for emission; simulate an operator
+        // flipping isEnabled back on (e.g. a legacy client that expects it) by testing the
+        // assembler with a mapping list where the row is emitted.
         var props = new cn.geodata.sso.config.SsoProperties();
         props.getLegacy().setEnabledLiteral(cn.geodata.sso.config.SsoProperties.EnabledLiteral.ONE_ZERO);
-        var assembler = new CasAttributeAssembler(null, props);
+        var assembler = new CasAttributeAssembler(null, props) {
+            @Override
+            public List<CasAttributeMapping> loadMappings() {
+                return defaults().stream()
+                        .map(m -> m.attributeName().equals(IS_ENABLED)
+                                ? new CasAttributeMapping(m.attributeName(), m.sourceKey(), true, m.sortOrder())
+                                : m)
+                        .toList();
+            }
+        };
         List<Map.Entry<String, String>> attrs = assembler.assemble(zhangsanAttributes());
         String xml = new CasResponseRenderer().serviceValidationSuccess("zhangsan", attrs);
         assertTrue(xml.contains("<cas:isEnabled>1</cas:isEnabled>"));
