@@ -1,0 +1,45 @@
+# Production overlay. Mount at /app/config/application-prod.yml (or bake into image).
+# Secrets come from environment variables, never from this file.
+spring:
+  datasource:
+    url: ${LEGACY_SSO_DB_URL:jdbc:postgresql://localhost:5432/sso}
+    username: ${LEGACY_SSO_DB_USER:sso}
+    password: ${LEGACY_SSO_DB_PASSWORD}
+  data:
+    redis:
+      host: ${SSO_REDIS_HOST:localhost}
+      port: 6379
+  sql:
+    init:
+      mode: never   # schema applied once at first boot, not per restart
+
+server:
+  port: 9000
+  # T-14 closed: production mount is the ROOT path; keep it empty.
+  servlet:
+    context-path: ""
+    session:
+      cookie:
+        name: GEODATA5SSID
+
+sso:
+  issuer: ${SSO_ISSUER:http://auth.geodata5.cn}
+  cas:
+    mount-paths:
+      - ""        # production reality: bare root
+      - /cas      # hedge kept: any legacy client hardcoding /cas still works
+    ticket-cookie-path: /
+    ticket-cookie-name: CASTGC
+    service-registry-mode: LENIENT   # flip to STRICT once the service inventory is complete
+    service-ticket-ttl: 10s
+    ticket-granting-ticket-max-lifetime: 8h
+    ticket-granting-ticket-idle-timeout: 2h
+    login-page:
+      captcha-required: true         # enable once the captcha integration is confirmed
+  legacy:
+    enabled: true
+    created-from-filter: CAS         # production: match the legacy auth SQL exactly
+    upgrade-password-on-login: true
+    read-only-source-of-truth: true
+  bootstrap:
+    seed: false                      # never seed demo data in production
